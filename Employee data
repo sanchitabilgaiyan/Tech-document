@@ -1,0 +1,74 @@
+-- Create the source table
+CREATE TABLE employees (
+    emp_id NUMBER PRIMARY KEY,
+    emp_name VARCHAR2(100),
+    department_id NUMBER,
+    salary NUMBER
+);
+
+-- Insert some sample data into the source table
+INSERT INTO employees VALUES (1, 'Alice', 10, 5000);
+INSERT INTO employees VALUES (2, 'Bob', 10, 7000);
+INSERT INTO employees VALUES (3, 'Charlie', 20, 6000);
+INSERT INTO employees VALUES (4, 'Diana', 20, 8000);
+INSERT INTO employees VALUES (5, 'Eve', 30, 4000);
+
+-- Create the summary table
+CREATE TABLE department_salary_summary (
+    department_id NUMBER PRIMARY KEY,
+    total_salary NUMBER
+);
+
+-- Create the PL/SQL procedure
+CREATE OR REPLACE PROCEDURE calculate_department_salary IS
+    CURSOR dept_cursor IS
+        SELECT department_id, SUM(salary) AS total_salary
+        FROM employees
+        GROUP BY department_id;
+
+    v_department_id department_salary_summary.department_id%TYPE;
+    v_total_salary department_salary_summary.total_salary%TYPE;
+
+BEGIN
+    -- Open the cursor
+    OPEN dept_cursor;
+
+    LOOP
+        -- Fetch the next row
+        FETCH dept_cursor INTO v_department_id, v_total_salary;
+
+        -- Exit the loop if no more rows
+        EXIT WHEN dept_cursor%NOTFOUND;
+
+        -- Insert or update the summary table
+        BEGIN
+            INSERT INTO department_salary_summary (department_id, total_salary)
+            VALUES (v_department_id, v_total_salary);
+        EXCEPTION
+            WHEN DUP_VAL_ON_INDEX THEN
+                UPDATE department_salary_summary
+                SET total_salary = v_total_salary
+                WHERE department_id = v_department_id;
+        END;
+    END LOOP;
+
+    -- Close the cursor
+    CLOSE dept_cursor;
+
+    -- Output a success message
+    DBMS_OUTPUT.PUT_LINE('Salary summary updated successfully.');
+
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('An error occurred: ' || SQLERRM);
+END;
+/
+
+-- Run the procedure
+BEGIN
+    calculate_department_salary;
+END;
+/
+
+-- Check the results
+SELECT * FROM department_salary_summary;
